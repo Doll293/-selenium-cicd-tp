@@ -9,6 +9,8 @@ from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 import os
+import stat
+
 class TestCalculator:
     @pytest.fixture(scope="class")
     def driver(self):
@@ -21,7 +23,18 @@ class TestCalculator:
             chrome_options.add_argument('--disable-dev-shm-usage')
             chrome_options.add_argument('--disable-gpu')
             chrome_options.add_argument('--window-size=1920,1080')
-        service = Service(ChromeDriverManager().install())
+        driver_path = ChromeDriverManager().install()
+
+        # Correction : éviter les erreurs avec un fichier incorrect
+        if not os.path.basename(driver_path) == "chromedriver":
+            potential_path = os.path.join(os.path.dirname(driver_path), "chromedriver")
+            if os.path.exists(potential_path):
+                driver_path = potential_path
+                os.chmod(driver_path, os.stat(driver_path).st_mode | stat.S_IEXEC)
+            else:
+                raise RuntimeError("chromedriver binaire non trouvé")
+
+        service = Service(driver_path)
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.implicitly_wait(10)
         yield driver
