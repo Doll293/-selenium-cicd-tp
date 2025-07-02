@@ -33,6 +33,8 @@ class TestCalculator:
                 os.chmod(driver_path, os.stat(driver_path).st_mode | stat.S_IEXEC)
             else:
                 raise RuntimeError("chromedriver binaire non trouvé")
+            
+        print(driver_path)
 
         service = Service(driver_path)
         driver = webdriver.Chrome(service=service, options=chrome_options)
