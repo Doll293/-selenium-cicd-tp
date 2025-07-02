@@ -9,6 +9,8 @@ from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 import os
+import stat
+
 class TestCalculator:
     @pytest.fixture(scope="class")
     def driver(self):
@@ -21,7 +23,20 @@ class TestCalculator:
             chrome_options.add_argument('--disable-dev-shm-usage')
             chrome_options.add_argument('--disable-gpu')
             chrome_options.add_argument('--window-size=1920,1080')
-        service = Service(ChromeDriverManager().install())
+        driver_path = ChromeDriverManager().install()
+
+        # Correction : éviter les erreurs avec un fichier incorrect
+        if not os.path.basename(driver_path) == "chromedriver":
+            potential_path = os.path.join(os.path.dirname(driver_path), "chromedriver")
+            if os.path.exists(potential_path):
+                driver_path = potential_path
+                os.chmod(driver_path, os.stat(driver_path).st_mode | stat.S_IEXEC)
+            else:
+                raise RuntimeError("chromedriver binaire non trouvé")
+            
+        print(driver_path)
+
+        service = Service(driver_path)
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.implicitly_wait(10)
         yield driver
@@ -104,6 +119,20 @@ class TestCalculator:
             )
             assert f"Résultat: {expected}" in result.text
             time.sleep(1)
+
+    def test_page_load_time(self, driver):
+        """Test 5: Mesurer le temps de chargement de la page"""
+        start_time = time.time()
+        file_path = os.path.abspath("../src/index.html")
+        driver.get(f"file://{file_path}")
+        # Attendre que la page soit complètement chargée
+        WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.ID, "calculator"))
+        )
+        load_time = time.time() - start_time
+        print(f"Temps de chargement: {load_time:.2f} secondes")
+        # Vérifier que le chargement prend moins de 3 secondes
+        assert load_time < 3.0, f"Page trop lente à charger: {load_time:.2f}s"
 
 if __name__ == "__main__":
     pytest.main(["-v", "--html=report.html", "--self-contained-html"])
